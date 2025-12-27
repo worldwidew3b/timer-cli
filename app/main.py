@@ -6,6 +6,7 @@ from app.repositories.focus_session import FocusSessionRepository
 from app.utils.timer import run_timer
 from datetime import datetime
 from app.utils.period_map import PERIOD_MAP
+from app.views.view import View
 
 
 class Service:
@@ -39,7 +40,7 @@ class Service:
         with self.session() as session:
             total_time = FocusSessionRepository.get_total_duration_for_task(session, task_id)
         return total_time
-    
+
     def get_stats_by(self, period: str, task_id: int | None):
         with self.session() as session:
             focus_sessions = FocusSessionRepository.get_stats_by(session, period, task_id)
@@ -52,69 +53,61 @@ class Service:
                     result[task.name] += s.duration
             return result
 
-            
-            
-
 
 class App:
     def __init__(self) -> None:
         self.service = Service()
+        self.view = View()
 
     def create_task(self, name):
         name = name.capitalize()
         task = self.service.create_task(name)
         if not task:
-            return f"Задача: {name} уже существует"
-        return f"Задача создана\nID: {task.id}\nName: {task.name}"
+            self.view.display_task_exists(name)
+        else:
+            self.view.display_task_created(task.id, task.name)
 
     def start_focus_in_task(self, task_id, duration: int = 0):
         # Проверяем, существует ли задача
         with self.service.session() as session:
-            task = TaskRepository.get(session, task_id)
+            from app.models.task import Task
+            from sqlalchemy import select
+            task = session.scalar(select(Task).where(Task.id == task_id))
             if not task:
-                return f"Ошибка: Задача с ID {task_id} не найдена"
+                self.view.display_task_not_found(task_id)
+                return
             else:
-                print(f"Задача: {task.name}\n")
-            # Создаем сессию в базе данных
-            focus_session = self.service.start_focus_in_task(task_id)
+                self.view.display_task_focus_start(task.name)
 
-            # Запускаем таймер
-            elapsed_time = run_timer(duration)
-            print(elapsed_time)
-            # Завершаем сессию с учетом прошедшего времени
-            focus_session = self.service.finish_focus_in_task(focus_id=focus_session.id, task_id=task_id, end_time=datetime.now(), duration=elapsed_time)
-            session.refresh(task)
+        # Создаем сессию в базе данных
+        focus_session = self.service.start_focus_in_task(task_id)
 
-        return f"Рабочая сессия завершена. Общее время в задаче: {round(task.time_spent/60)} минут"
+        # Запускаем красивый таймер через View
+        elapsed_time = self.view.display_beautiful_timer(duration)
+
+        # Завершаем сессию с учетом прошедшего времени
+        focus_session = self.service.finish_focus_in_task(
+            focus_id=focus_session.id,
+            task_id=task_id,
+            end_time=datetime.now(),
+            duration=elapsed_time
+        )
+
+        # Refresh task to get updated time
+        with self.service.session() as session:
+            updated_task = session.scalar(select(Task).where(Task.id == task_id))
+
+        self.view.display_focus_session_completed(updated_task.time_spent / 60)
 
     def get_all_tasks(self):
         tasks = self.service.all_task()
-        if not tasks:
-            print("Нет созданных задач")
-            return
-        print("Список задач:")
-        for task in tasks:
-            hours_spent = task.time_spent // 3600
-            minutes_spent = (task.time_spent % 3600) // 60
-            print(f"\nID: {task.id}\nНазвание: {task.name}\nОбщее время: {hours_spent} ч. {minutes_spent} мин.\n")
+        self.view.display_tasks_list(tasks)
 
     def get_stats_by_period(self, period, task_id: int | None):
         name_time = self.service.get_stats_by(period, task_id)
-        if not name_time:
-            return 'За этот период нет рабочих сессий'
-        for name, time in name_time.items():
-            type = 'минут'
-            if time > 60:
-                time = round(time / 60)
-                type = 'часов'
-            print(f"Задача: {name}\nВремя: {time} {type}\n")
-        
-            
-        
+        self.view.display_statistics(name_time, period)
 
 
-
-init_db()
 def main():
     parser = argparse.ArgumentParser(description="Timer CLI приложение для управления задачами")
     subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
@@ -135,22 +128,23 @@ def main():
     stats_parser = subparsers.add_parser("stats", help='Получить статистику за неделю/месяц/год/сегодня')
     stats_parser.add_argument("period", type=str, help='выбор week/month/year/today')
     stats_parser.add_argument("--task", type=int, default=None, help='ID задачи')
-    
 
     args = parser.parse_args()
 
+    # Initialize database
+    init_db()
+
+    # Initialize the App with View layer
     app = App()
 
     if args.command == "create":
-        result = app.create_task(args.name)
-        print(result)
+        app.create_task(args.name)
     elif args.command == "list":
         app.get_all_tasks()
     elif args.command == "start":
-        result = app.start_focus_in_task(args.task_id, args.duration)
-        print(result)
+        app.start_focus_in_task(args.task_id, args.duration)
     elif args.command == 'stats':
-        result = app.get_stats_by_period(args.period, args.task)
+        app.get_stats_by_period(args.period, args.task)
     else:
         parser.print_help()
 
