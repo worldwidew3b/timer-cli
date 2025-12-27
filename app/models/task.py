@@ -8,5 +8,5 @@ class Task(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    time_spent: Mapped[int] = mapped_column(default=0)  # Time spent in seconds
+    time_spent: Mapped[int] = mapped_column(default=0)
     

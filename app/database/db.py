@@ -13,8 +13,3 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     """Initialize the database and create tables"""
     Base.metadata.create_all(bind=engine)
-
-def create_session():
-    with SessionLocal() as session:
-        yield session
-        session.close()
