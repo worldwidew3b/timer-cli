@@ -104,7 +104,7 @@ class View:
             'month': 'месяц',
             'year': 'год'
         }
-        
+
         period_name = period_names.get(period, period)
         title = Text(f"📈 Статистика за {period_name}:", style="bold underline")
         self.console.print(title)
@@ -114,13 +114,14 @@ class View:
         table.add_column("Время", style="green")
 
         for name, time in stats.items():
-            if time > 60:
+            if time > 3600:
+                time_value = time // 3600
+                minutes = round((time % 3600) / 60)
+                table.add_row(name, f"{time_value} часов {minutes} минут")
+            elif time > 60:
                 time_value = round(time / 60)
-                unit = 'часов'
-            else:
-                time_value = time
-                unit = 'минут'
-            table.add_row(name, f"{time_value} {unit}")
+                table.add_row(name, f"{time_value} минут")
+            
 
         self.console.print(table)
 
@@ -148,6 +149,7 @@ class View:
         from app.utils.timer import Timer
         import time
         from rich.live import Live
+        from app.utils.notification import show_notification
 
         timer = Timer(duration_minutes)
         timer.start_timer()
@@ -167,8 +169,8 @@ class View:
 
                     # Create large text for timer
                     timer_text = Text()
-                    timer_text.append(f"\n{title}\n\n", style="bold yellow underline")
-                    timer_text.append(f"{time_text}\n", style="bold white on blue")
+                    timer_text.append(f"\n{title}\n\n", style="bold purple underline")
+                    timer_text.append(f"{time_text}\n", style="bold red on white")
 
                     panel = Panel(
                         Align.center(timer_text),
@@ -193,12 +195,14 @@ class View:
             elapsed_time = timer.stop_timer()
 
             # Display completion message
-            self.console.print(f"\n[bold green]Таймер завершен![/bold green]")
             if duration_minutes == 0:  # Бесконечный таймер
+                self.console.print(f"\n[bold yellow]Таймер завершен![/bold yellow]")
                 self.console.print(f"[bold yellow]Прошло времени: {timer.format_time(elapsed_time)}[/bold yellow]")
             else:  # Таймер с обратным отсчетом
                 if elapsed_time >= timer.duration_seconds:
-                    self.console.print(f"[bold green]Время вышло![/bold green]")
+                    self.console.print(f"\n[bold green]Время вышло![/bold green]")
+                    # Show notification when countdown timer completes
+                    show_notification("Таймер завершен!", "Время для фокусировки закончилось!")
                 else:
                     self.console.print(f"[bold yellow]Прошло времени: {timer.format_time(elapsed_time)}[/bold yellow]")
 

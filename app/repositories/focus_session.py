@@ -59,6 +59,16 @@ class FocusSessionRepository:
         """Возвращает общую продолжительность всех сессий для задачи"""
         sessions = FocusSessionRepository.get_by_task_id(session, task_id)
         return sum(session.duration for session in sessions)
+    
+    @staticmethod
+    def delete_by_task(session: Session, task_id: int) -> bool:
+        focus_sessions = FocusSessionRepository.get_by_task_id(session, task_id)
+        if not focus_sessions:
+            return False
+        for s in focus_sessions:
+            session.delete(s)
+        session.commit()
+        return True
 
     @staticmethod
     def get_stats_by(session: Session, period: str, task_id: int | None):

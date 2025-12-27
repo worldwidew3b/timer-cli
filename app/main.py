@@ -53,6 +53,17 @@ class Service:
                     result[task.name] += s.duration
             return result
 
+    def delete_task(self, task_id):
+        with self.session() as session:
+            result = TaskRepository.delete(session, task_id)
+        return result
+    
+    def delete_sessions_by_task(self, task_id):
+        with self.session() as session:
+            result = FocusSessionRepository.delete_by_task(session, task_id)
+        return result
+
+
 
 class App:
     def __init__(self) -> None:
@@ -107,6 +118,12 @@ class App:
         name_time = self.service.get_stats_by(period, task_id)
         self.view.display_statistics(name_time, period)
 
+    def delete_task_and_sessions(self, task_id: int):
+        res = self.service.delete_sessions_by_task(task_id)
+        res1 = self.service.delete_task(task_id)
+        if res or res1:
+            self.view.display_info(f"Задача {task_id} и все сессии удалены")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Timer CLI приложение для управления задачами")
@@ -128,6 +145,10 @@ def main():
     stats_parser = subparsers.add_parser("stats", help='Получить статистику за неделю/месяц/год/сегодня')
     stats_parser.add_argument("period", type=str, help='выбор week/month/year/today')
     stats_parser.add_argument("--task", type=int, default=None, help='ID задачи')
+    
+    # удалить задачу и все сессии с ней
+    del_parser = subparsers.add_parser("del", help='Удалить задачу и все сессии связанные с ней')
+    del_parser.add_argument("task_id", type=int, help="ID задачи")
 
     args = parser.parse_args()
 
@@ -145,6 +166,8 @@ def main():
         app.start_focus_in_task(args.task_id, args.duration)
     elif args.command == 'stats':
         app.get_stats_by_period(args.period, args.task)
+    elif args.command == 'del':
+        app.delete_task_and_sessions(args.task_id)
     else:
         parser.print_help()
 

@@ -31,5 +31,14 @@ class TaskRepository:
         return task
     
     @staticmethod
+    def delete(session: Session, id: int):
+        task = TaskRepository.get(session, id)
+        if not task:
+            return False
+        session.delete(task)
+        session.commit()
+        return True
+    
+    @staticmethod
     def get_all(session: Session) -> list[Task]:
         return list(session.scalars(select(Task)))

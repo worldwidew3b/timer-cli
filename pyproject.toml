@@ -1,7 +1,7 @@
 [project]
-name = "project-python"
+name = "timer-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "A beautiful CLI timer application for time management and focus tracking"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,3 +9,6 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "rich>=13.0.0",
 ]
+
+[project.scripts]
+timer-cli = "app.main:main"
