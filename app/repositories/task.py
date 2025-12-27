@@ -13,7 +13,6 @@ class TaskRepository:
             return task
         except IntegrityError:
             session.rollback()
-            raise ValueError('name must be unique')
         
     @staticmethod
     def get(session: Session, id: int):

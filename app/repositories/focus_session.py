@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.focus_session import FocusSession
 
 class FocusSessionRepository:
@@ -31,9 +31,14 @@ class FocusSessionRepository:
             if hasattr(focus_session, key):
                 setattr(focus_session, key, value)
 
-        if 'end_time' in kwargs and focus_session.start_time:
-            # Обновляем duration при установке end_time
+        # If duration is explicitly provided in kwargs, use that value
+        if 'duration' in kwargs:
+            focus_session.duration = kwargs['duration']
+        elif 'end_time' in kwargs and focus_session.start_time and focus_session.duration == 0:
+            # Only calculate duration from timestamps if it hasn't been set already
             focus_session.duration = int((focus_session.end_time - focus_session.start_time).total_seconds())
+            print(focus_session.duration)
+
         session.commit()
         session.refresh(focus_session)
         return focus_session
@@ -54,3 +59,24 @@ class FocusSessionRepository:
         """Возвращает общую продолжительность всех сессий для задачи"""
         sessions = FocusSessionRepository.get_by_task_id(session, task_id)
         return sum(session.duration for session in sessions)
+
+    @staticmethod
+    def get_stats_by(session: Session, period: str, task_id: int | None):
+        from app.utils.period_map import PERIOD_MAP
+        try:
+            days = PERIOD_MAP[period]
+        except KeyError:
+            print('Укажите правильный период week/month/year/today')
+            return None
+
+        # Calculate the date threshold based on the period
+        threshold_date = datetime.now() - timedelta(days=days)
+
+        # Build the query based on whether task_id is provided
+        query = select(FocusSession).where(FocusSession.created_at >= threshold_date)
+        if task_id:
+            query = query.where(FocusSession.task_id == task_id)
+
+        sessions = list(session.scalars(query))
+
+        return sessions
